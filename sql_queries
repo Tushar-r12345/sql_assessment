@@ -1,0 +1,63 @@
+# Step 1 we created our table
+CREATE TABLE credit_card_transactions (
+    date TIMESTAMP,
+    user_id INT,
+    transaction_id INT,
+    transaction_amount DECIMAL(10, 2)
+);
+
+INSERT INTO credit_card_transactions (date, user_id, transaction_id, transaction_amount)
+SELECT
+    DATE('2022-01-01') + INTERVAL '1 day' * floor(random() * 730),  -- Corrected random date generation
+    floor(random() * 10000) + 1,                     -- Random user_id between 1 and 10000
+    floor(random() * 1000000) + 1,                    -- Random transaction_id between 1 and 1000000
+    round(cast(random() * 1000 + 1 as numeric), 2)     -- Corrected random transaction_amount
+FROM
+    generate_series(1, 100);
+
+SELECT * FROM credit_card_transactions;
+
+# query1: Calculate: total_transactions, unique_users and total_transaction_amount for every date and hour combination.
+
+SELECT 
+    DATE(date) AS transaction_date, 
+    EXTRACT(HOUR FROM date) AS transaction_hour, 
+    COUNT(*) AS total_transactions, 
+    COUNT(DISTINCT user_id) AS unique_users, 
+    SUM(transaction_amount) AS total_transaction_amount
+FROM 
+    credit_card_transactions
+GROUP BY 
+    transaction_date, 
+    transaction_hour;
+
+# query2: Calculate hour with highest transaction_amount for every date
+
+WITH HourlyTransactionAmounts AS (
+    SELECT 
+        DATE(date) AS transaction_date, 
+        EXTRACT(HOUR FROM date) AS transaction_hour, 
+        SUM(transaction_amount) AS total_transaction_amount
+    FROM 
+        credit_card_transactions
+    GROUP BY 
+        transaction_date, 
+        transaction_hour
+),
+MaxHourlyTransactionAmount AS (
+    SELECT 
+        transaction_date, 
+        MAX(total_transaction_amount) AS max_hourly_transaction_amount
+    FROM 
+        HourlyTransactionAmounts
+    GROUP BY 
+        transaction_date
+)
+SELECT 
+    hta.transaction_date, 
+    hta.transaction_hour
+FROM 
+    HourlyTransactionAmounts hta
+JOIN 
+    MaxHourlyTransactionAmount mhta ON hta.transaction_date = mhta.transaction_date 
+                                    AND hta.total_transaction_amount = mhta.max_hourly_transaction_amount;
